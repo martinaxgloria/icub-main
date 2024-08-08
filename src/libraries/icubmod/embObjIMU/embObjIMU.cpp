@@ -23,7 +23,8 @@
 #include "FeatureInterface.h"
 #include "eo_imu_privData.h"
 
-
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
 
 using namespace yarp::os;
 using namespace yarp::dev;
@@ -374,8 +375,20 @@ bool embObjIMU::getOrientationSensorMeasureAsRollPitchYaw(size_t sens_index, yar
 		yError() << getBoardInfo() << "getOrientationSensorMeasureAsRollPitchYaw: index out of range";
 		return false;
 	}
-    return GET_privData(mPriv).sens.getSensorMeasure(sens_index, eoas_imu_eul, rpy_out, timestamp);
+    // return GET_privData(mPriv).sens.getSensorMeasure(sens_index, eoas_imu_eul, rpy_out, timestamp);
 
+    yarp::sig::Vector quat;
+    GET_privData(mPriv).sens.getSensorMeasure(sens_index, eoas_imu_qua, quat, timestamp);
+
+    Eigen::Quaterniond q(quat[0], quat[1], quat[2], quat[3]);
+    Eigen::Matrix3d rotationMatrix = q.toRotationMatrix();
+    Eigen::Vector3d eulerAngles = rotationMatrix.eulerAngles(1, 0, 2); //YXZ order
+
+    rpy_out[0] = eulerAngles[0];
+    rpy_out[1] = eulerAngles[1];
+    rpy_out[2] = eulerAngles[2];
+
+    return true;
 }
 
 

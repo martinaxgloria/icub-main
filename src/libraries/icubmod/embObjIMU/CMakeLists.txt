@@ -16,7 +16,9 @@ IF (NOT SKIP_embObjIMU)
   INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
 
   yarp_add_plugin(embObjIMU embObjIMU.cpp embObjIMU.h eo_imu_privData.h  eo_imu_privData.cpp)
-  TARGET_LINK_LIBRARIES(embObjIMU ethResources)
+  find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+  TARGET_LINK_LIBRARIES(embObjIMU PUBLIC ethResources
+      PRIVATE Eigen3::Eigen)
   icub_export_plugin(embObjIMU)
 
         yarp_install(TARGETS embObjIMU
