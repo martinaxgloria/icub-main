@@ -14,11 +14,10 @@ IF (NOT SKIP_embObjIMU)
 
 #   message(INFO " embObjIMU - embObj_includes: ${embObj_includes}, ${CMAKE_CURRENT_SOURCE_DIR}/")
   INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
-
+  find_package(iDynTree REQUIRED)
   yarp_add_plugin(embObjIMU embObjIMU.cpp embObjIMU.h eo_imu_privData.h  eo_imu_privData.cpp)
-  find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-  TARGET_LINK_LIBRARIES(embObjIMU PUBLIC ethResources
-      PRIVATE Eigen3::Eigen)
+  TARGET_LINK_LIBRARIES(embObjIMU ethResources iDynTree::idyntree-high-level iDynTree::idyntree-estimation)
+
   icub_export_plugin(embObjIMU)
 
         yarp_install(TARGETS embObjIMU

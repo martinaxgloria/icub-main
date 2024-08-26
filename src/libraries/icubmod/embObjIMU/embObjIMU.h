@@ -17,7 +17,7 @@
 
 #include "IethResource.h"
 
-
+#include "serviceParser.h"
 
 /**
  *  @ingroup icub_hardware_modules
@@ -95,7 +95,8 @@ public:
 private:
     
     void *mPriv;
-    
+    servConfigImu_t servCfg;
+
     std::string getBoardInfo(void) const;
     std::pair <size_t, eOas_sensor_t> getGyroSubIndex(size_t sens_index) const;
     std::pair <size_t, eOas_sensor_t> getAccSubIndex(size_t sens_index) const;

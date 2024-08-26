@@ -23,8 +23,7 @@
 #include "FeatureInterface.h"
 #include "eo_imu_privData.h"
 
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
+#include <iDynTree/Rotation.h>
 
 using namespace yarp::os;
 using namespace yarp::dev;
@@ -122,7 +121,6 @@ bool embObjIMU::open(yarp::os::Searchable &config)
 
     // read stuff from config file
 
-    servConfigImu_t servCfg;
     if(!GET_privData(mPriv).fromConfig(config, servCfg))
         return false;
 
@@ -194,6 +192,60 @@ bool embObjIMU::open(yarp::os::Searchable &config)
 
     GET_privData(mPriv).sens.init(servCfg, getBoardInfo());
     GET_privData(mPriv).setOpen(true);
+
+    // if ((servCfg.inertials[0].typeofboard) == eobrd_cantype_strain2 || (servCfg.inertials[0].typeofboard) == eobrd_cantype_strain2c)
+    // {
+    //     yDebug() << "STRAIN2 OR STRAIN2C DETECTED";
+    // }
+   
+    // const eOas_inertial3_arrayof_descriptors_t* tmp = &servparam->configuration.data.as.inertial3.arrayofdescriptor;
+    // EOconstarray* array = eo_constarray_Load(reinterpret_cast<const EOarray*>(tmp));
+    // uint8_t size = eo_constarray_Size(array);
+
+    // for(uint8_t i = 0; i < size; i++)
+    // {
+    //     eOas_inertial3_data_t *data = (eOas_inertial3_data_t*) eo_constarray_At(array, i); //I DATI NON SONO CORRETTI
+    //     if(servCfg.inertials[i].typeofboard == eobrd_cantype_strain2 || servCfg.inertials[i].typeofboard == eobrd_cantype_strain2c) //se e' di tipo strain2 o strain2c
+    //     {
+    //         std::vector<yarp::sig::Vector> input;
+    //         input.resize(servCfg.inertials.size());
+    //         double timestamp;
+    //         //FIXME sicuramente l'indice del sensore e' sbagliato
+    //         uint8_t index;
+    //         eOas_sensor_t type;
+    //         bool validdata =  GET_privData(mPriv).maps.getIndex(data, index, type);
+    //         if(!validdata)
+    //         {
+    //             yError("NOT VALID value[%i] is: seq = %d, timestamp = %d, type = %s, id = %d, v= ((%d), %d, %d, %d), status = %x",
+    //                     i,
+    //                     data->seq,
+    //                     data->timestamp,
+    //                     eoas_sensor2string(static_cast<eOas_sensor_t>(data->typeofsensor)),
+    //                     data->id,
+    //                     data->w, data->x, data->y, data->z,
+    //                     data->status.general);
+    //         }
+
+    //         if(type == static_cast<eOas_sensor_t>(servCfg.inertials[i].typeofsensor))
+    //         {
+    //             // yDebug() << eoas_sensor2string(type);
+    //             yDebug() << "sens" << GET_privData(mPriv).sens.getNumOfSensors(type);
+
+    //             yDebug() << index;
+    //             GET_privData(mPriv).sens.getSensorMeasure(index, static_cast<eOas_sensor_t>(servCfg.inertials[i].typeofsensor), input[i], timestamp); //ci facciamo ritornare le misure dal sensore in base al tipo
+    //             iDynTree::Rotation rpy_from_FW = iDynTree::Rotation::RPY(iDynTree::deg2rad(input[i][0]), iDynTree::deg2rad(input[i][1]), iDynTree::deg2rad(input[i][2])); //rotm formata dai valori letti da FW
+    //             iDynTree::Rotation ft_R_imu = iDynTree::Rotation(0, -0.0175, 0, -0.0175, 0, 0, 0, 0, -0.0175); //rotm ottenuta da cad rimappando il frame della imu su quello dell'ft (gia' in rad)
+    //             iDynTree::Rotation R_imu = rpy_from_FW * ft_R_imu;
+ 
+    //             // data->x = iDynTree::rad2deg(R_imu.asRPY()[0]);
+    //             // data->y = iDynTree::rad2deg(R_imu.asRPY()[1]);
+    //             // data->z = iDynTree::rad2deg(R_imu.asRPY()[2]);
+    //         }
+    //             //  yDebug() << static_cast<eOas_sensor_t>(servCfg.inertials[i].typeofsensor);
+
+    //         // GET_privData(mPriv).sens.update(static_cast<eOas_sensor_t>(servCfg.inertials[i].typeofsensor), i, data); //dati del sensore aggiornati dopo la trasformazione
+    //     }
+    // }
     return true;
 }
 
@@ -375,20 +427,8 @@ bool embObjIMU::getOrientationSensorMeasureAsRollPitchYaw(size_t sens_index, yar
 		yError() << getBoardInfo() << "getOrientationSensorMeasureAsRollPitchYaw: index out of range";
 		return false;
 	}
-    // return GET_privData(mPriv).sens.getSensorMeasure(sens_index, eoas_imu_eul, rpy_out, timestamp);
 
-    yarp::sig::Vector quat;
-    GET_privData(mPriv).sens.getSensorMeasure(sens_index, eoas_imu_qua, quat, timestamp);
-
-    Eigen::Quaterniond q(quat[0], quat[1], quat[2], quat[3]);
-    Eigen::Matrix3d rotationMatrix = q.toRotationMatrix();
-    Eigen::Vector3d eulerAngles = rotationMatrix.eulerAngles(1, 0, 2); //YXZ order
-
-    rpy_out[0] = eulerAngles[0];
-    rpy_out[1] = eulerAngles[1];
-    rpy_out[2] = eulerAngles[2];
-
-    return true;
+    return GET_privData(mPriv).sens.getSensorMeasure(sens_index, eoas_imu_eul, rpy_out, timestamp);
 }
 
 
@@ -408,14 +448,14 @@ eth::iethresType_t embObjIMU::type()
 bool embObjIMU::update(eOprotID32_t id32, double timestamp, void* rxdata)
 {
     eOas_inertial3_status_t *i3s  = (eOas_inertial3_status_t*)rxdata;
-
     EOconstarray* arrayofvalues = eo_constarray_Load(reinterpret_cast<const EOarray*>(&i3s->arrayofdata));
-
     uint8_t numofIntem2update = eo_constarray_Size(arrayofvalues);
 
     for(int i=0; i<numofIntem2update; i++)
     {
         eOas_inertial3_data_t *data = (eOas_inertial3_data_t*) eo_constarray_At(arrayofvalues, i);
+ //       eOas_inertial3_descriptor_t *des = (eOas_inertial3_descriptor_t*)eo_constarray_At(arrayofvalues, i);
+
         if(data == NULL)
         {
             yError() << getBoardInfo() << "update(): I have to update " << numofIntem2update << "items, but the " << i << "-th item is null.";
@@ -458,9 +498,27 @@ bool embObjIMU::update(eOprotID32_t id32, double timestamp, void* rxdata)
 
             }
         }
+
         else
         {
             GET_privData(mPriv).sens.update(type, index, data);
+        }
+        
+        // yDebug() << eoas_sensor2string(static_cast<eOas_sensor_t>(des->typeofsensor));
+        yDebug() << eoboards_type2string(static_cast<eObrd_type_t>(servCfg.inertials[index].typeofboard));
+        if(servCfg.inertials[index].typeofboard == eobrd_strain2 || servCfg.inertials[index].typeofboard == eobrd_strain2c)
+        {
+            if(type == eoas_imu_eul)
+            {
+                // GET_privData(mPriv).maps.getIndex(data, index, type);
+                iDynTree::Rotation rpy_from_FW = iDynTree::Rotation::RPY(iDynTree::deg2rad(data->x), iDynTree::deg2rad(data->y), iDynTree::deg2rad(data->z)); //rotm formata dai valori letti da FW
+                iDynTree::Rotation ft_R_imu = iDynTree::Rotation(0, -0.0175, 0, -0.0175, 0, 0, 0, 0, -0.0175); //rotm ottenuta da cad rimappando il frame della imu su quello dell'ft (gia' in rad)
+                iDynTree::Rotation R_imu = rpy_from_FW * ft_R_imu;
+                data->x = iDynTree::rad2deg(R_imu.asRPY()[0]);
+                data->y = iDynTree::rad2deg(R_imu.asRPY()[1]);
+                data->z = iDynTree::rad2deg(R_imu.asRPY()[2]);
+                GET_privData(mPriv).sens.update(type, index, data);
+            }
         }
     }
     return true;
