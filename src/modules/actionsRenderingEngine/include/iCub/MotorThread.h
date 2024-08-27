@@ -397,6 +397,7 @@ public:
     bool drawNear(Bottle &options);
     bool shiftAndGrasp(Bottle &options);
     bool expect(Bottle &options);
+    bool handover(Bottle &options);
     bool give(Bottle &options);
 
     bool clearIt(Bottle &options);

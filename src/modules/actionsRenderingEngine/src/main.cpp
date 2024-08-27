@@ -386,6 +386,7 @@ Windows, Linux
 #define CMD_LOOK                    yarp::os::createVocab32('l','o','o','k')
 #define CMD_TRACK                   yarp::os::createVocab32('t','r','a','c')
 #define CMD_EXPECT                  yarp::os::createVocab32('e','x','p','e')
+#define CMD_HANDOVER                yarp::os::createVocab32('h','o','v','r')
 #define CMD_GIVE                    yarp::os::createVocab32('g','i','v','e')
 #define CMD_HAND                    yarp::os::createVocab32('h','a','n','d')
 #define CMD_GAZE                    yarp::os::createVocab32('r','e','l','e')
@@ -1077,6 +1078,53 @@ public:
                     case CMD_EXPECT:
                     {
                         if(!motorThr->expect(command))
+                        {
+                            motorThr->setGazeIdle();
+                            motorThr->release(command);
+                            motorThr->goHome(command);
+                            reply.addVocab32(NACK);
+                            break;
+                        }
+
+                        motorThr->grasp(command);
+
+                        if(motorThr->isHolding(command))
+                        {
+                            if (check(command,"near"))
+                                motorThr->drawNear(command);
+                            else
+                            {
+                                motorThr->setGazeIdle();
+                                Bottle b;
+                                b.addString("head");
+                                b.addString("arms");
+                                motorThr->goHome(b);
+                            }
+
+                            reply.addVocab32(ACK);
+                        }
+                        else
+                        {
+                           motorThr->setGazeIdle();
+                           motorThr->release(command);
+                           motorThr->goHome(command);
+                           reply.addVocab32(NACK);
+                        }
+
+                        break;
+                    }
+
+
+                    case CMD_HANDOVER:
+                    {
+                        if(command.size()<2)
+                        {
+                            reply.addVocab32(NACK);
+                            break;
+                        }
+
+                        visuoThr->getTarget(command.get(1),command);
+                        if(!motorThr->handover(command))
                         {
                             motorThr->setGazeIdle();
                             motorThr->release(command);

@@ -2029,6 +2029,56 @@ bool MotorThread::expect(Bottle &options)
     return true;
 }
 
+bool MotorThread::handover(Bottle &options)
+{
+    int arm=ARM_IN_USE;
+    if(checkOptions(options,"left") || checkOptions(options,"right"))
+        arm=checkOptions(options,"left")?LEFT:RIGHT;
+
+    Vector xd;
+    Bottle *bTarget=options.find("target").asList();    
+    if (!targetToCartesian(bTarget,xd))
+    {
+        return false;
+    }
+
+    arm=checkArm(arm, xd);
+
+    if(!checkOptions(options,"no_head") && !checkOptions(options,"no_gaze"))
+    {
+        setGazeIdle();
+        lookAtHand(options);
+    }
+
+    restoreContext(arm);
+    action[arm]->pushAction(xd, expectOrient[arm], "open_hand");
+
+    bool f;
+    action[arm]->checkActionsDone(f,true);
+    
+    double force_thresh;
+    if (auto* p = dynamic_cast<ActionPrimitivesLayer2*>(action[arm]))
+        p->getExtForceThres(force_thresh);
+    
+    bool contact_detected=false;
+    Vector wrench(6);
+    double t=Time::now();
+    while(!contact_detected && Time::now()-t<5.0)
+    {
+        if (auto* p = dynamic_cast<ActionPrimitivesLayer2*>(action[arm]))
+            p->getExtWrench(wrench);
+
+        if(norm(wrench)>force_thresh)
+            contact_detected=true;
+
+        Time::delay(0.1);
+    }    
+    
+    if(!checkOptions(options,"no_head") && !checkOptions(options,"no_gaze"))
+        setGazeIdle();
+
+    return true;
+}
 
 bool MotorThread::give(Bottle &options)
 {
