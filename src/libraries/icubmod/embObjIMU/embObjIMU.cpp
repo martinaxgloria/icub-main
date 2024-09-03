@@ -401,7 +401,6 @@ bool embObjIMU::update(eOprotID32_t id32, double timestamp, void* rxdata)
     for(int i=0; i<numofIntem2update; i++)
     {
         eOas_inertial3_data_t *data = (eOas_inertial3_data_t*) eo_constarray_At(arrayofvalues, i);
- //       eOas_inertial3_descriptor_t *des = (eOas_inertial3_descriptor_t*)eo_constarray_At(arrayofvalues, i);
 
         if(data == NULL)
         {
@@ -456,10 +455,10 @@ bool embObjIMU::update(eOprotID32_t id32, double timestamp, void* rxdata)
             if(type == eoas_imu_eul)
             {
                 auto imu_H_ft = iDynTree::Rotation(0, -1, 0, -1, 0, 0, 0, 0, -1);
-                auto R_ft = imu_H_ft * iDynTree::Rotation::RPY(iDynTree::deg2rad(data->x), iDynTree::deg2rad(data->y), iDynTree::deg2rad(data->z));
-                data->x = iDynTree::rad2deg(R_ft.asRPY()[0]);
-                data->y = iDynTree::rad2deg(R_ft.asRPY()[1]);
-                data->z = iDynTree::rad2deg(R_ft.asRPY()[2]);
+                auto R_ft = iDynTree::Rotation::RPY(iDynTree::deg2rad((data->x)/16.0), iDynTree::deg2rad((data->y)/16.0), iDynTree::deg2rad((data->z)/16.0)) * imu_H_ft;
+                data->x = iDynTree::rad2deg(R_ft.asRPY()[0]) * 16.0;
+                data->y = iDynTree::rad2deg(R_ft.asRPY()[1]) * 16.0;
+                data->z = iDynTree::rad2deg(R_ft.asRPY()[2]) * 16.0;
                 GET_privData(mPriv).sens.update(type, index, data);
             }
         }
