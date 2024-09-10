@@ -464,6 +464,10 @@ public:
     ActionsRenderingEngine()
     {}
 
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
+    bool m_waitMotion = false;
+
     bool initialize(ResourceFinder &rf)
     {
         string name=rf.check("name",Value("actionsRenderingEngine")).asString();
@@ -1120,42 +1124,26 @@ public:
                         if(command.size()<2)
                         {
                             reply.addVocab32(NACK);
+                            reply.addString("No target set.");
                             break;
                         }
 
                         visuoThr->getTarget(command.get(1),command);
-                        if(!motorThr->handover(command))
+                        if(check(command, "no_blocking"))
                         {
-                            motorThr->setGazeIdle();
-                            motorThr->release(command);
-                            motorThr->goHome(command);
-                            reply.addVocab32(NACK);
-                            break;
-                        }
-
-                        motorThr->grasp(command);
-
-                        if(motorThr->isHolding(command))
-                        {
-                            if (check(command,"near"))
-                                motorThr->drawNear(command);
-                            else
-                            {
-                                motorThr->setGazeIdle();
-                                Bottle b;
-                                b.addString("head");
-                                b.addString("arms");
-                                motorThr->goHome(b);
-                            }
-
+                            std::unique_lock<std::mutex> lk(m_mutex);
+                            std::thread handov(&ActionsRenderingEngine::deployHandover, this, command, reply);
+                            handov.detach();
+                            // reply.clear();
                             reply.addVocab32(ACK);
+                            break;
                         }
                         else
                         {
-                           motorThr->setGazeIdle();
-                           motorThr->release(command);
-                           motorThr->goHome(command);
-                           reply.addVocab32(NACK);
+                            if(deployHandover(command, reply))
+                            {
+                                reply.addVocab32(ACK);
+                            }
                         }
 
                         break;
@@ -1174,10 +1162,10 @@ public:
 
                         motorThr->give(command);
 
-                       motorThr->setGazeIdle();
-                       motorThr->release(command);
-                       motorThr->goHome(command);
-                       reply.addVocab32(NACK);
+                        motorThr->setGazeIdle();
+                        motorThr->release(command);
+                        motorThr->goHome(command);
+                        reply.addVocab32(NACK);
 
                         break;
                     }
@@ -1469,6 +1457,42 @@ public:
         return true;
     }
 
+    bool deployHandover(Bottle command, Bottle reply)
+    {
+        if(!motorThr->handover(command))
+        {
+            motorThr->setGazeIdle();
+            motorThr->release(command);
+            motorThr->goHome(command);
+            return false;
+        }
+        motorThr->grasp(command);
+
+        if(motorThr->isHolding(command))
+        {
+            if (check(command,"near"))
+                motorThr->drawNear(command);
+            else
+            {
+                motorThr->setGazeIdle();
+                Bottle b;
+                b.addString("head");
+                b.addString("arms");
+                motorThr->goHome(b);
+                reply.addVocab32(NACK);
+                return false;
+            }
+            reply.addVocab32(ACK);
+        }
+        else
+        {
+            motorThr->setGazeIdle();
+            motorThr->release(command);
+            motorThr->goHome(command);
+            reply.addVocab32(ACK);
+        }
+        return true;
+    }
 
 };
 

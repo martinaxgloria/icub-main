@@ -33,6 +33,7 @@
 
 #include <vector>
 #include <limits>
+#include <thread>
 
 #include <iCub/utils.h>
 
