@@ -7,6 +7,7 @@
 #include <iCub/DualCamCalibModule.h>
 #include <yarp/os/Network.h>
 #include <yarp/os/Property.h>
+#include <yarp/os/Stamp.h>
 
 #include <algorithm>
 #include <cstring>
@@ -287,6 +288,9 @@ bool CamCalibModule::updateModule()
     copyFrame(calibratedImgLeft, 0, 0);
     copyFrame(calibratedImgRight, align==ALIGN_WIDTH ? frameWidth : 0,
                                  align==ALIGN_HEIGHT ? frameHeight : 0);
+
+    yarp::os::Stamp stamp;
+    imageOut.setEnvelope(stamp);
 
     imageOut.writeStrict();
     if (verboseExecTime) yDebug ("%f", now-time_lastOut);
